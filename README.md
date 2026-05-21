@@ -1,33 +1,120 @@
-# yt-view
+<div align="center">
 
-`yt-view` turns a YouTube URL into a VLM-friendly context pack:
+<img src="assets/banner.svg" alt="yt-view — cinematic context compiler" width="860">
 
-- downloads the video
-- extracts compressed audio
-- transcribes with timestamps
-- samples candidate frames
-- describes and scores frames with OpenAI vision + embeddings
-- selects either top-k salient frames or salience-density samples
-- extracts the reusable cinematic grammar underneath the reference
-- writes copy-pasteable Markdown, a style bible, Blender/Remotion-ready shot specs, a Codex prompt, JSON metadata, selected frame JPGs, and a ZIP
+<br/>
 
-It ships as a CLI, MCP stdio server, and Next.js website. The goal is not just helping VLMs watch videos; it is turning reference cinema into executable production grammar for coding agents.
+**Turn any YouTube video into a VLM-ready context pack** — a timed transcript,
+the frames that actually matter, and the cinematic grammar underneath, compiled
+into copy-paste artifacts your coding agents can build from.
+
+<br/>
+
+![License](https://img.shields.io/badge/license-MIT-c5341b?style=flat-square)
+![Node](https://img.shields.io/badge/node-%E2%89%A5%2020-211c17?style=flat-square)
+![Next.js](https://img.shields.io/badge/Next.js-16-211c17?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-211c17?style=flat-square)
+![PRs welcome](https://img.shields.io/badge/PRs-welcome-c5341b?style=flat-square)
+
+[Overview](#overview) · [Quick start](#quick-start) · [Web app](#web-app) ·
+[CLI](#cli) · [MCP server](#mcp-server) · [HTTP API](#http-api) ·
+[Roadmap](#roadmap)
+
+</div>
+
+---
+
+## Overview
+
+`yt-view` is a pipeline that watches a YouTube video the way a film editor
+would, then writes down what it learned. It is not just a transcript tool — the
+goal is to turn **reference cinema into executable production grammar** for
+coding agents and downstream generation systems.
+
+Given a URL, it:
+
+1. downloads the video and extracts a compressed audio track
+2. transcribes speech with per-segment timestamps
+3. samples candidate frames across the timeline
+4. describes and scores every frame with OpenAI vision + embeddings
+5. selects the most representative frames (top-k or salience-density)
+6. compiles a **style bible**, **Blender/Remotion-ready shot specs**, a
+   **Codex/Claude implementation prompt**, and **anti-slop validators**
+7. writes Markdown, JSON, the selected frame JPGs, and a ZIP bundle
+
+It ships as **three interfaces over one pipeline** — a web app, a CLI, and an
+MCP stdio server.
+
+```
+URL ─▶ download ─▶ audio ─▶ transcribe ─▶ sample frames ─▶ vision + embeddings
+    ─▶ score & select ─▶ compile cinematic grammar ─▶ artifacts ( md · json · jpg · zip )
+```
+
+## How it works
+
+| Stage | What happens |
+|-------|--------------|
+| **Download** | `yt-dlp` (bundled via `youtube-dl-exec`) fetches the best MP4. |
+| **Audio** | Bundled `ffmpeg` demuxes a 16 kHz mono speech track. |
+| **Transcribe** | OpenAI transcription returns verbose JSON with segment timestamps. |
+| **Sample** | `ffmpeg` extracts candidate frames at a configurable interval. |
+| **Vision** | Each frame is described, tagged, and scored for salience. |
+| **Embed** | Frame descriptions are embedded to measure semantic novelty. |
+| **Select** | A weighted score picks top-k or density-sampled frames. |
+| **Compile** | A vision model extracts the reusable cinematic grammar. |
+| **Package** | Everything is written to disk and zipped. |
 
 ## Requirements
 
-- Node.js 20+
-- `OPENAI_API_KEY`
+- **Node.js 20+**
+- An **`OPENAI_API_KEY`**
 - Network access to YouTube and OpenAI
 
-The project uses bundled `ffmpeg` and `ffprobe` binaries. You do not need a system install.
+`ffmpeg` and `ffprobe` are bundled — no system install required.
 
-## Setup
+## Quick start
 
 ```bash
+git clone https://github.com/JacobFV/yt-view.git
+cd yt-view
 npm install
+
 cp .env.example .env
-# add OPENAI_API_KEY to .env
+# open .env and set OPENAI_API_KEY
+
+npm run dev        # web app at http://localhost:3000
 ```
+
+Or skip the browser and go straight to the CLI:
+
+```bash
+npm run cli -- "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+---
+
+## Web app
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`, paste a YouTube URL, and run analysis. The
+interface is a single editorial experience — *"The Reference Monograph"* — styled
+as a printed film publication: warm paper, ink, one printer's red, and the two
+moments you *watch* (the processing frame and the lightbox) drop to theater
+black.
+
+- a **URL composer** that detects the video and shows its thumbnail before you run
+- a collapsible **Tuning** panel for frame count, selection mode, and sampling
+- **live pipeline progress** — every stage reports in real time with an overall
+  percentage, an elapsed clock, and per-frame counts, instead of a blind spinner
+- a **result view** with tabs for the watch pack, frames, style bible, shot
+  specs, Codex prompt, and slop warnings
+- rendered Markdown with a Reading/Raw toggle, per-tab copy, and `.md` download
+- a **frame gallery** with a keyboard-navigable lightbox and per-frame downloads
+- a one-click artifact **ZIP** download
+- responsive across desktop and mobile, with reduced-motion support
 
 ## CLI
 
@@ -45,142 +132,255 @@ npm run cli -- "<url>" \
   --mode style \
   --candidate-interval 6 \
   --max-candidates 48 \
-  --frame-width 768
+  --frame-width 768 \
+  --quiet
 ```
 
-Output modes:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-k, --top-k <n>` | `8` | Number of frames to select. |
+| `-m, --mode <mode>` | `all` | Output: `watch`, `style`, `shot-specs`, `prompt`, `all`. |
+| `--selection-mode <mode>` | `density` | Frame selection: `density` or `top-k`. |
+| `--candidate-interval <s>` | `8` | Seconds between sampled frames. |
+| `--max-candidates <n>` | `36` | Candidate frames sent to vision analysis. |
+| `--frame-width <px>` | `768` | Extracted frame width. |
+| `-o, --output <dir>` | `.yt-view` | Output directory. |
+| `--json` | — | Print JSON metadata instead of Markdown. |
+| `--with-data-urls` | — | Include base64 data URLs in JSON output. |
+| `--quiet` | — | Suppress the live progress display. |
 
-- `watch`: transcript plus representative frame metadata
-- `style`: cinematic style bible
-- `shot-specs`: Blender/Remotion-ready shot specs
-- `prompt`: copy-pasteable Codex/Claude implementation prompt
-- `all`: all text artifacts separated by dividers
+The CLI renders a live progress bar on **stderr** as it moves through each
+pipeline stage. **stdout** only ever receives the requested artifact text or
+JSON, so it stays safe to pipe.
 
-The CLI prints the Markdown context and writes artifacts under `.yt-view/<job-id>/`:
+## MCP server
 
-- `watch.md`
-- `style-bible.md`
-- `shot-specs.md`
-- `shot-specs.json`
-- `codex-prompt.md`
-- `metadata.json`
-- `yt-view-artifacts.zip`
-- `frames/*.jpg`
+`yt-view` exposes the pipeline to MCP clients (Claude Desktop, Claude Code, and
+any other agent that speaks MCP) as a single tool: **`watch_youtube`**.
 
-## MCP
-
-Build the stdio server:
+### 1. Build the server
 
 ```bash
-npm run build:bin
+npm install        # if you have not already
+npm run build:bin  # produces dist/mcp.js
 ```
 
-Add this command to an MCP client:
+This compiles a standalone stdio server to `dist/mcp.js`.
+
+### 2. Register it with a client
+
+The server needs `OPENAI_API_KEY` in its environment. It will read a `.env` file
+in its working directory if one exists, but because MCP clients launch the
+process from an arbitrary directory, **passing the key explicitly in the client
+config is recommended**.
+
+<details open>
+<summary><b>Claude Desktop</b></summary>
+
+<br/>
+
+Edit the config file:
+
+- macOS — `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows — `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "yt-view": {
+      "command": "node",
+      "args": ["/absolute/path/to/yt-view/dist/mcp.js"],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. `watch_youtube` will appear in the tools list.
+
+</details>
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+<br/>
+
+```bash
+claude mcp add yt-view \
+  --env OPENAI_API_KEY=sk-... \
+  -- node /absolute/path/to/yt-view/dist/mcp.js
+```
+
+Verify with `claude mcp list`.
+
+</details>
+
+<details>
+<summary><b>Any other MCP client</b></summary>
+
+<br/>
+
+Launch this command as a **stdio** MCP server, with `OPENAI_API_KEY` in its
+environment:
 
 ```bash
 node /absolute/path/to/yt-view/dist/mcp.js
 ```
 
-The server exposes one tool:
+</details>
 
-```text
-watch_youtube
-```
+### 3. `watch_youtube` arguments
 
-Arguments:
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `url` | *(required)* | YouTube video URL. |
+| `topK` | `8` | Number of frames to select. |
+| `mode` | `density` | Frame selection: `density` or `top-k`. |
+| `outputMode` | `all` | `watch`, `style`, `prompt`, `shot-specs`, or `all`. |
+| `candidateIntervalSeconds` | `8` | Seconds between sampled frames. |
+| `maxCandidateFrames` | `36` | Candidate frames sent to vision analysis. |
+| `frameWidth` | `768` | Extracted frame width. |
+| `outputDir` | *(optional)* | Where to write artifacts. |
 
-- `url` required
-- `topK` default `8`
-- `mode` `density` or `top-k`
-- `outputMode` `watch`, `style`, `prompt`, `shot-specs`, or `all`
-- `candidateIntervalSeconds` default `8`
-- `maxCandidateFrames` default `36`
-- `frameWidth` default `768`
-- `outputDir` optional
+The tool returns the requested text artifact plus the selected frames as MCP
+image content, and also writes the full artifact set to disk.
 
-The tool returns the requested text artifact plus selected frames as MCP image content and also writes local artifacts.
+## HTTP API
 
-## Website
+`GET /api/analyze` returns the endpoint contract as JSON, so the API is
+self-documenting. `POST /api/analyze` runs the pipeline and **content-negotiates**
+its response so the same endpoint serves the browser and headless agents:
+
+- **`Accept: application/x-ndjson`** — streams newline-delimited JSON. Zero or
+  more `{"type":"progress","stage":"vision","pct":0.71,...}` events, then one
+  `{"type":"result","result":{...}}` line. Failures arrive as
+  `{"type":"error","message":"..."}`. The web app uses this for live progress.
+- **Any other `Accept`** — returns a single buffered JSON result object, or
+  `{"error":"..."}` with HTTP 400. The simplest thing for an agent to
+  `fetch().then(r => r.json())`.
+
+**Request body** (JSON): `url` *(required)*, `topK`, `mode` (`density` |
+`top-k`), `candidateIntervalSeconds`, `maxCandidateFrames`, `frameWidth`.
+
+**Result**: `metadata`, `markdown`, `frames` (each with an inline `dataUrl`),
+`cinematic` artifacts, and a base64 `zipDataUrl`.
 
 ```bash
-npm run dev
+# Discover the contract
+curl -s http://localhost:3000/api/analyze
+
+# Headless agent — one buffered JSON result
+curl -s -X POST http://localhost:3000/api/analyze \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://youtu.be/VIDEO_ID"}'
+
+# Live streaming progress
+curl -N -X POST http://localhost:3000/api/analyze \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/x-ndjson' \
+  -d '{"url":"https://youtu.be/VIDEO_ID"}'
 ```
 
-Open `http://localhost:3000`, paste a YouTube URL, choose frame selection options, and run analysis. The result page includes:
+---
 
-- tabs for watch pack, frames, style bible, shot specs, Codex prompt, and slop warnings
-- copy button for the active text tab
-- frame previews
-- per-frame downloads
-- ZIP download
+## Artifacts
 
-## Cinematic Grammar Compiler
+Every run writes a job folder under the output directory (`.yt-view/<job-id>/`):
+
+| File | Contents |
+|------|----------|
+| `watch.md` | Timed transcript plus representative frame metadata. |
+| `style-bible.md` | The extracted cinematic production grammar. |
+| `shot-specs.md` / `shot-specs.json` | Blender/Remotion-ready shot specs. |
+| `codex-prompt.md` | A direct implementation prompt for coding agents. |
+| `metadata.json` | The full structured analysis result. |
+| `frames/*.jpg` | The selected frame images. |
+| `yt-view-artifacts.zip` | Everything above, bundled. |
+
+## Cinematic grammar compiler
 
 The extra outputs are designed for downstream generation systems.
 
-`style-bible.md` extracts the production grammar:
+**`style-bible.md`** extracts the production grammar: cinematic ontology,
+reference lineage, camera/lens/lighting/material/edit/typography/sound language,
+narration register and forbidden phrases, reusable shot patterns, and transfer
+rules for new products.
 
-- cinematic ontology
-- reference lineage
-- camera, lens, lighting, material, edit, typography, and sound language
-- narration register and forbidden phrases
-- reusable shot patterns
-- transfer rules for new products
+**`shot-specs.json`** makes the reference executable: source frame and
+timestamp, shot type and purpose, lens/focal length/aperture/rig/movement/focus
+behavior, lighting setup, material emphasis, Blender render passes, diffusion
+finishing intent, Remotion role, and anti-slop forbidden moves.
 
-`shot-specs.json` makes the reference executable:
+**`codex-prompt.md`** is a direct implementation prompt for coding agents. It
+tells Codex/Claude to build a physically grounded Blender-first pipeline with
+diffusion as finishing and Remotion as editorial assembly — not as the visual
+substrate.
 
-- source frame and timestamp
-- shot type and purpose
-- lens, focal length, aperture, rig, movement, and focus behavior
-- lighting setup
-- material emphasis
-- Blender render passes
-- diffusion finishing intent
-- Remotion role
-- anti-slop forbidden moves
+**`slopWarnings`** are validator-ready rules that catch presentation-deck
+failure modes: arbitrary floating UI, LinkedIn announcement language, missing
+lens metadata, and ungrounded abstract AI visuals.
 
-`codex-prompt.md` is a direct implementation prompt for coding agents. It tells Codex/Claude to build a physically grounded Blender-first pipeline with diffusion as finishing and Remotion as editorial assembly, not as the visual substrate.
+## Frame selection
 
-`slopWarnings` are validator-ready rules that identify presentation-deck failure modes such as arbitrary floating UI, LinkedIn announcement language, missing lens metadata, and ungrounded abstract AI visuals.
+- **`top-k`** sorts candidate frames by score and returns the highest scoring.
+- **`density`** treats salience as a timeline density and samples across
+  weighted buckets — usually a more representative sequence across the whole
+  video while still preferring information-rich moments.
 
-## Vercel
+The score combines OpenAI vision salience, semantic novelty from frame
+descriptions, visual scene-change novelty, nearby transcript density, and
+colorfulness.
 
-This repo is intended to deploy through the linked GitHub repository. Push to the configured production branch and let Vercel build automatically.
+## Configuration
 
-Set `OPENAI_API_KEY` in the Vercel project settings before relying on automatic deployments:
+Environment variables (see `.env.example`):
 
-```bash
-OPENAI_API_KEY=...
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | *(required)* | Your OpenAI API key. |
+| `OPENAI_TRANSCRIBE_MODEL` | `whisper-1` | Transcription model. |
+| `OPENAI_VISION_MODEL` | `gpt-4.1-mini` | Vision + grammar model. |
+| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model. |
+| `YT_VIEW_OUTPUT_DIR` | `.yt-view` | Default artifact directory. |
 
-This app is configured for Node.js runtime and a 300 second function duration. Vercel serverless limits still apply; long videos are better processed through the CLI or MCP server. Short videos and clips fit the hosted web path.
+`whisper-1` is the default because it supports verbose JSON with segment
+timestamps.
 
-## Frame Selection
+## Deployment
 
-`top-k` sorts candidate frames by score and returns the highest scoring frames.
+This repo is intended to deploy through a linked GitHub repository on Vercel.
+Push to the configured production branch and let Vercel build automatically.
 
-`density` treats salience scores as a timeline density and samples across weighted buckets. This usually gives a more representative sequence across the whole video while still preferring information-rich moments.
+Set `OPENAI_API_KEY` in the Vercel project settings before relying on automatic
+deployments. The analyze route is configured for the Node.js runtime with a 300
+second function duration. Serverless limits still apply — long videos are better
+processed through the CLI or MCP server; short videos and clips fit the hosted
+web path.
 
-The score combines:
+> [!IMPORTANT]
+> The hosted web app currently runs the pipeline **without authentication**.
+> Each analysis costs real OpenAI usage. Before exposing a public deployment,
+> add auth and usage limits — see [`TODO.md`](./TODO.md).
 
-- OpenAI vision salience
-- semantic novelty from frame descriptions
-- visual scene-change novelty
-- nearby transcript density
-- colorfulness
+## Roadmap
 
-## OpenAI Models
+Planned work — including gating the public web app behind authentication and
+billing so it cannot run up unbounded OpenAI spend — is tracked in
+[`TODO.md`](./TODO.md).
 
-Defaults are set in `.env.example`:
+## Contributing
 
-```bash
-OPENAI_TRANSCRIBE_MODEL=whisper-1
-OPENAI_VISION_MODEL=gpt-4.1-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-```
-
-`whisper-1` is used by default because it supports verbose JSON with segment timestamps.
+Issues and pull requests are welcome. The codebase is TypeScript throughout;
+`npm run typecheck` and `npm run lint` should pass before opening a PR.
 
 ## Notes
 
-Only process videos you have the right to download and analyze. YouTube availability and extractor behavior can change; `youtube-dl-exec` bundles `yt-dlp`, which is more robust than browser-only download libraries.
+Only process videos you have the right to download and analyze. YouTube
+availability and extractor behavior can change; `youtube-dl-exec` bundles
+`yt-dlp`, which is more robust than browser-only download libraries.
+
+## License
+
+[MIT](./LICENSE)

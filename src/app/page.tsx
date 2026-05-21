@@ -457,8 +457,9 @@ export default function Home() {
 
       <section className="stage">
         {authLoading ? (
-          <div className="auth-shell">
-            <p className="auth-kicker">Loading account</p>
+          <div className="auth-loading" role="status">
+            <span className="auth-loading-spin" aria-hidden="true" />
+            <span>Loading your account</span>
           </div>
         ) : !user ? (
           <AuthView onAuthenticated={handleAuthenticated} />
@@ -546,10 +547,26 @@ export default function Home() {
  * Auth                                                                *
  * ================================================================== */
 
+const AUTH_POINTS = [
+  {
+    title: "Frames that matter",
+    body: "Vision salience and transcript density pick the representative stills — not every keyframe."
+  },
+  {
+    title: "Cinematic grammar",
+    body: "A style bible plus Blender / Remotion-ready shot specs your agents can build from."
+  },
+  {
+    title: "Your reference archive",
+    body: "Every analysis is saved to your account — reopen any past video in one click."
+  }
+];
+
 function AuthView(props: { onAuthenticated: (user: User) => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -573,38 +590,54 @@ function AuthView(props: { onAuthenticated: (user: User) => void }) {
     }
   }
 
+  function switchMode(next: "login" | "signup") {
+    if (next === mode) return;
+    setMode(next);
+    setError("");
+  }
+
   return (
     <div className="auth-shell">
       <div className="auth-copy">
-        <span className="hero-eyebrow">Private reference library</span>
+        <span className="hero-eyebrow">Reference cinema → executable grammar</span>
         <h1 className="hero-title">
-          Sign in to save every context pack to <em>your video archive</em>.
+          Turn any YouTube video into a <em>VLM-ready context pack</em>.
         </h1>
         <p className="hero-sub">
-          yt2ctx now keeps analyses in Postgres, tied to your account, so the homepage can reopen
-          past videos without relying on browser storage.
+          Timed transcript, the frames that actually matter, and the cinematic grammar underneath —
+          compiled into copy-paste artifacts your coding agents can build from.
         </p>
+        <ul className="auth-points">
+          {AUTH_POINTS.map((point) => (
+            <li key={point.title}>
+              <strong>{point.title}</strong>
+              <span>{point.body}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <form className="auth-form" onSubmit={submit}>
+        <p className="auth-form-kicker">
+          {mode === "login" ? "Welcome back" : "Start your archive"}
+        </p>
+
         <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === "login"}
             className={mode === "login" ? "is-active" : ""}
-            onClick={() => {
-              setMode("login");
-              setError("");
-            }}
+            onClick={() => switchMode("login")}
           >
             Sign in
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === "signup"}
             className={mode === "signup" ? "is-active" : ""}
-            onClick={() => {
-              setMode("signup");
-              setError("");
-            }}
+            onClick={() => switchMode("signup")}
           >
             Create account
           </button>
@@ -617,20 +650,35 @@ function AuthView(props: { onAuthenticated: (user: User) => void }) {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@studio.com"
             required
+            autoFocus
           />
         </label>
 
         <label className="auth-field">
           <span>Password</span>
-          <input
-            type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            minLength={8}
-            required
-          />
+          <div className="auth-input-wrap">
+            <input
+              type={showPassword ? "text" : "password"}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={8}
+              required
+            />
+            <button
+              type="button"
+              className="auth-reveal"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+          {mode === "signup" ? (
+            <span className="auth-hint">At least 8 characters</span>
+          ) : null}
         </label>
 
         {error ? (
@@ -645,6 +693,24 @@ function AuthView(props: { onAuthenticated: (user: User) => void }) {
             <path d="M5 12h14M13 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
+
+        <p className="auth-switch">
+          {mode === "login" ? (
+            <>
+              New to yt2ctx?{" "}
+              <button type="button" onClick={() => switchMode("signup")}>
+                Create an account
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button type="button" onClick={() => switchMode("login")}>
+                Sign in
+              </button>
+            </>
+          )}
+        </p>
       </form>
     </div>
   );

@@ -4,7 +4,7 @@
 node_modules
 .next
 dist
-.yt-view
-.yt-view-*
+.youtube-to-context
+.youtube-to-context-*
 *.tsbuildinfo
 .vercel

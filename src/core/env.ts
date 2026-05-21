@@ -9,5 +9,5 @@ export function getOpenAiKey(explicit?: string): string {
 }
 
 export function defaultOutputDir(): string {
-  return process.env.YT_VIEW_OUTPUT_DIR || ".yt-view";
+  return process.env.YOUTUBE_TO_CONTEXT_OUTPUT_DIR || ".youtube-to-context";
 }

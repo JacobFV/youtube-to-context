@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.svg" alt="yt-view — cinematic context compiler" width="860">
+<img src="assets/banner.svg" alt="youtube-to-context — cinematic context compiler" width="860">
 
 <br/>
 
@@ -26,7 +26,7 @@ into copy-paste artifacts your coding agents can build from.
 
 ## Overview
 
-`yt-view` is a pipeline that watches a YouTube video the way a film editor
+`youtube-to-context` is a pipeline that watches a YouTube video the way a film editor
 would, then writes down what it learned. It is not just a transcript tool — the
 goal is to turn **reference cinema into executable production grammar** for
 coding agents and downstream generation systems.
@@ -75,8 +75,8 @@ URL ─▶ download ─▶ audio ─▶ transcribe ─▶ sample frames ─▶ v
 ## Quick start
 
 ```bash
-git clone https://github.com/JacobFV/yt-view.git
-cd yt-view
+git clone https://github.com/JacobFV/youtube-to-context.git
+cd youtube-to-context
 npm install
 
 cp .env.example .env
@@ -126,7 +126,7 @@ Useful options:
 
 ```bash
 npm run cli -- "<url>" \
-  --output .yt-view \
+  --output .youtube-to-context \
   --top-k 10 \
   --selection-mode density \
   --mode style \
@@ -144,7 +144,7 @@ npm run cli -- "<url>" \
 | `--candidate-interval <s>` | `8` | Seconds between sampled frames. |
 | `--max-candidates <n>` | `36` | Candidate frames sent to vision analysis. |
 | `--frame-width <px>` | `768` | Extracted frame width. |
-| `-o, --output <dir>` | `.yt-view` | Output directory. |
+| `-o, --output <dir>` | `.youtube-to-context` | Output directory. |
 | `--json` | — | Print JSON metadata instead of Markdown. |
 | `--with-data-urls` | — | Include base64 data URLs in JSON output. |
 | `--quiet` | — | Suppress the live progress display. |
@@ -155,7 +155,7 @@ JSON, so it stays safe to pipe.
 
 ## MCP server
 
-`yt-view` exposes the pipeline to MCP clients (Claude Desktop, Claude Code, and
+`youtube-to-context` exposes the pipeline to MCP clients (Claude Desktop, Claude Code, and
 any other agent that speaks MCP) as a single tool: **`watch_youtube`**.
 
 ### 1. Build the server
@@ -187,9 +187,9 @@ Edit the config file:
 ```json
 {
   "mcpServers": {
-    "yt-view": {
+    "youtube-to-context": {
       "command": "node",
-      "args": ["/absolute/path/to/yt-view/dist/mcp.js"],
+      "args": ["/absolute/path/to/youtube-to-context/dist/mcp.js"],
       "env": {
         "OPENAI_API_KEY": "sk-..."
       }
@@ -208,9 +208,9 @@ Restart Claude Desktop. `watch_youtube` will appear in the tools list.
 <br/>
 
 ```bash
-claude mcp add yt-view \
+claude mcp add youtube-to-context \
   --env OPENAI_API_KEY=sk-... \
-  -- node /absolute/path/to/yt-view/dist/mcp.js
+  -- node /absolute/path/to/youtube-to-context/dist/mcp.js
 ```
 
 Verify with `claude mcp list`.
@@ -226,7 +226,7 @@ Launch this command as a **stdio** MCP server, with `OPENAI_API_KEY` in its
 environment:
 
 ```bash
-node /absolute/path/to/yt-view/dist/mcp.js
+node /absolute/path/to/youtube-to-context/dist/mcp.js
 ```
 
 </details>
@@ -287,7 +287,7 @@ curl -N -X POST http://localhost:3000/api/analyze \
 
 ## Artifacts
 
-Every run writes a job folder under the output directory (`.yt-view/<job-id>/`):
+Every run writes a job folder under the output directory (`.youtube-to-context/<job-id>/`):
 
 | File | Contents |
 |------|----------|
@@ -297,7 +297,7 @@ Every run writes a job folder under the output directory (`.yt-view/<job-id>/`):
 | `codex-prompt.md` | A direct implementation prompt for coding agents. |
 | `metadata.json` | The full structured analysis result. |
 | `frames/*.jpg` | The selected frame images. |
-| `yt-view-artifacts.zip` | Everything above, bundled. |
+| `youtube-to-context-artifacts.zip` | Everything above, bundled. |
 
 ## Cinematic grammar compiler
 
@@ -343,7 +343,7 @@ Environment variables (see `.env.example`):
 | `OPENAI_TRANSCRIBE_MODEL` | `whisper-1` | Transcription model. |
 | `OPENAI_VISION_MODEL` | `gpt-4.1-mini` | Vision + grammar model. |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model. |
-| `YT_VIEW_OUTPUT_DIR` | `.yt-view` | Default artifact directory. |
+| `YOUTUBE_TO_CONTEXT_OUTPUT_DIR` | `.youtube-to-context` | Default artifact directory. |
 
 `whisper-1` is the default because it supports verbose JSON with segment
 timestamps.

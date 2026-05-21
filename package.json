@@ -1,25 +1,25 @@
 {
-  "name": "yt-view",
+  "name": "youtube-to-context",
   "version": "1.0.0",
   "description": "Turn YouTube videos into timed transcripts and representative frame packs for VLM context.",
   "type": "module",
   "bin": {
-    "yt-view": "./dist/cli.js",
-    "yt-view-mcp": "./dist/mcp.js"
+    "youtube-to-context": "./dist/cli.js",
+    "youtube-to-context-mcp": "./dist/mcp.js"
   },
   "main": "dist/index.js",
   "scripts": {
     "dev": "next dev",
-    "build": "tsc --noEmit && next build && npm run build:bin",
+    "build": "node scripts/install-ytdlp-standalone.mjs && tsc --noEmit && next build && npm run build:bin",
     "build:bin": "tsup src/cli.ts src/mcp.ts src/index.ts --format esm --out-dir dist --target node20 --platform node --clean",
     "cli": "tsx src/cli.ts",
     "mcp": "tsx src/mcp.ts",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JacobFV/yt-view.git"
+    "url": "git+https://github.com/JacobFV/youtube-to-context.git"
   },
   "keywords": [
     "youtube",
@@ -31,9 +31,9 @@
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/JacobFV/yt-view/issues"
+    "url": "https://github.com/JacobFV/youtube-to-context/issues"
   },
-  "homepage": "https://github.com/JacobFV/yt-view#readme",
+  "homepage": "https://github.com/JacobFV/youtube-to-context#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^14.0.3",
@@ -54,7 +54,8 @@
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^10.4.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
     "tsup": "^8.5.1",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"

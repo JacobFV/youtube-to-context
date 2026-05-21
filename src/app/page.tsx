@@ -402,12 +402,12 @@ export default function Home() {
             <span className="brand-aperture" />
           </span>
           <span className="brand-text">
-            <span className="brand-name">yt-view</span>
+            <span className="brand-name">youtube-to-context</span>
             <span className="brand-tag">cinematic context compiler</span>
           </span>
         </div>
         <nav className="topbar-links" aria-label="Resources">
-          <a className="ghost-link" href="https://github.com/JacobFV/yt-view" target="_blank" rel="noreferrer">
+          <a className="ghost-link" href="https://github.com/JacobFV/youtube-to-context" target="_blank" rel="noreferrer">
             GitHub
           </a>
           <span className="ghost-link ghost-link--static" title="POST /api/analyze">
@@ -516,11 +516,10 @@ function ComposeView(props: {
   error: string;
   onSubmit: () => void;
 }) {
-  const [thumbOk, setThumbOk] = useState(true);
-  useEffect(() => setThumbOk(true), [props.videoId]);
-
   const hasInput = props.url.trim().length > 0;
   const showHint = hasInput && !props.videoId;
+  const [failedThumbId, setFailedThumbId] = useState<string | null>(null);
+  const showThumb = Boolean(props.videoId && failedThumbId !== props.videoId);
 
   return (
     <div className="compose">
@@ -567,13 +566,13 @@ function ComposeView(props: {
           ) : null}
         </div>
 
-        {props.videoId && thumbOk ? (
+        {props.videoId && showThumb ? (
           <div className="preview">
             <img
               className="preview-thumb"
               src={thumbnailUrl(props.videoId)}
               alt="Video thumbnail"
-              onError={() => setThumbOk(false)}
+              onError={() => setFailedThumbId(props.videoId)}
             />
             <div className="preview-body">
               <span className="preview-ok">Video detected</span>

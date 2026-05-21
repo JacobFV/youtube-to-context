@@ -4,46 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { STAGE_PLAN } from "../core/progress";
 import type { ProgressEvent } from "../core/types";
+import type { AnalyzeResult, Frame, SlopWarning } from "./result-types";
+import {
+  deleteConversation,
+  loadConversations,
+  saveConversation,
+  SavedConversationQuotaError,
+  type SavedConversation
+} from "./saved-conversations";
 import { SiteFooter, SiteHeader } from "./site-chrome";
-
-/* ------------------------------------------------------------------ *
- * Types — only the slice of the API payload the UI actually touches.  *
- * ------------------------------------------------------------------ */
-
-type Frame = {
-  fileName: string;
-  index: number;
-  timestamp: number;
-  score: number;
-  description: string;
-  labels: string[];
-  transcriptContext?: string;
-  dataUrl: string;
-};
-
-type SlopWarning = {
-  rule: string;
-  whyItBreaksTaste: string;
-  rejectIf: string;
-  preferredMove: string;
-};
-
-type AnalyzeResult = {
-  id: string;
-  sourceUrl: string;
-  metadata: { title?: string; uploader?: string; durationSeconds: number };
-  options: { visionModel: string; mode: string; topK: number };
-  markdown: string;
-  frames: Frame[];
-  cinematic: {
-    styleMarkdown: string;
-    shotSpecMarkdown: string;
-    promptMarkdown: string;
-    slopWarnings: SlopWarning[];
-    shotSpecs?: unknown[];
-  };
-  zipDataUrl: string;
-};
 
 type Phase = "compose" | "running" | "done";
 type ResultTab = "watch" | "frames" | "style" | "shot-specs" | "prompt" | "warnings";
@@ -225,11 +194,21 @@ export default function Home() {
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [toast, setToast] = useState("");
 
+  // Saved conversations — past analyses kept in the browser's localStorage.
+  const [saved, setSaved] = useState<SavedConversation[]>([]);
+
   const abortRef = useRef<AbortController | null>(null);
   const runStartRef = useRef(0);
 
   const videoId = useMemo(() => parseYouTubeId(url), [url]);
   const canSubmit = url.trim().length > 0 && phase !== "running";
+
+  /* Hydrate the saved-conversation list once, on the client. localStorage is
+   * unavailable during SSR, so the list starts empty and fills in after mount. */
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount localStorage read
+    setSaved(loadConversations());
+  }, []);
 
   /* Live elapsed clock while a run is in flight. */
   useEffect(() => {
@@ -334,6 +313,18 @@ export default function Home() {
       setActiveTab("style");
       setViewRaw(false);
       setPhase("done");
+
+      // Keep the finished analysis on the homepage list for later.
+      try {
+        saveConversation(finalResult, videoId);
+        setSaved(loadConversations());
+      } catch (saveError) {
+        flashToast(
+          saveError instanceof SavedConversationQuotaError
+            ? "Storage full — conversation not saved"
+            : "Could not save this conversation"
+        );
+      }
     } catch (caught) {
       if (controller.signal.aborted) {
         setPhase("compose");
@@ -356,6 +347,25 @@ export default function Home() {
     setResult(null);
     setProgress(null);
     setError("");
+  }
+
+  /* Re-open a saved conversation straight into its result view. */
+  function openSavedConversation(conversation: SavedConversation) {
+    abortRef.current?.abort();
+    setUrl(conversation.sourceUrl);
+    setResult(conversation.result);
+    setActiveTab("style");
+    setViewRaw(false);
+    setLightbox(null);
+    setError("");
+    setProgress(null);
+    setPhase("done");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function removeSavedConversation(id: string) {
+    setSaved(deleteConversation(id));
+    flashToast("Conversation deleted");
   }
 
   /* Text backing the active document tab. */
@@ -418,6 +428,9 @@ export default function Home() {
             canSubmit={canSubmit}
             error={error}
             onSubmit={submit}
+            saved={saved}
+            onOpenSaved={openSavedConversation}
+            onDeleteSaved={removeSavedConversation}
           />
         ) : null}
 
@@ -495,6 +508,9 @@ function ComposeView(props: {
   canSubmit: boolean;
   error: string;
   onSubmit: () => void;
+  saved: SavedConversation[];
+  onOpenSaved: (conversation: SavedConversation) => void;
+  onDeleteSaved: (id: string) => void;
 }) {
   const hasInput = props.url.trim().length > 0;
   const showHint = hasInput && !props.videoId;
@@ -663,12 +679,128 @@ function ComposeView(props: {
         </button>
       </div>
 
+      {props.saved.length > 0 ? (
+        <SavedList
+          saved={props.saved}
+          onOpen={props.onOpenSaved}
+          onDelete={props.onDeleteSaved}
+        />
+      ) : null}
+
       <div className="feature-row">
         <Feature title="Frames that matter" body="Vision salience, novelty, and transcript density pick the representative stills." />
         <Feature title="Cinematic grammar" body="A style bible plus Blender / Remotion-ready shot specs, not slide-deck slop." />
         <Feature title="Built for agents" body="Streaming NDJSON API, an MCP tool, and a CLI — same pipeline everywhere." />
       </div>
     </div>
+  );
+}
+
+/* ================================================================== *
+ * Saved conversations                                                 *
+ * ================================================================== */
+
+function formatSavedAt(ms: number): string {
+  const date = new Date(ms);
+  const now = Date.now();
+  const dayMs = 86_400_000;
+  if (now - ms < dayMs && date.getDate() === new Date(now).getDate()) {
+    return `Today · ${date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+  }
+  if (now - ms < 2 * dayMs) {
+    return `Yesterday · ${date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function SavedList(props: {
+  saved: SavedConversation[];
+  onOpen: (conversation: SavedConversation) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="saved" aria-label="Saved conversations">
+      <div className="saved-head">
+        <h2 className="saved-title">Saved conversations</h2>
+        <span className="saved-count">{props.saved.length}</span>
+      </div>
+      <ul className="saved-list">
+        {props.saved.map((conversation) => (
+          <SavedRow
+            key={conversation.id}
+            conversation={conversation}
+            onOpen={props.onOpen}
+            onDelete={props.onDelete}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SavedRow(props: {
+  conversation: SavedConversation;
+  onOpen: (conversation: SavedConversation) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { conversation } = props;
+  const [thumbOk, setThumbOk] = useState(true);
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <li className="saved-row">
+      <button
+        type="button"
+        className="saved-open"
+        onClick={() => props.onOpen(conversation)}
+      >
+        {conversation.videoId && thumbOk ? (
+          <img
+            className="saved-thumb"
+            src={thumbnailUrl(conversation.videoId)}
+            alt=""
+            onError={() => setThumbOk(false)}
+          />
+        ) : (
+          <span className="saved-thumb saved-thumb--placeholder" aria-hidden="true" />
+        )}
+        <span className="saved-body">
+          <span className="saved-name">{conversation.title}</span>
+          <span className="saved-meta">
+            {conversation.uploader ? `${conversation.uploader} · ` : ""}
+            {formatTimestamp(conversation.durationSeconds)} · {conversation.frameCount} frames
+          </span>
+          <span className="saved-stamp">{formatSavedAt(conversation.savedAt)}</span>
+        </span>
+      </button>
+      {confirming ? (
+        <span className="saved-confirm">
+          <button
+            type="button"
+            className="saved-confirm-yes"
+            onClick={() => props.onDelete(conversation.id)}
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            className="saved-confirm-no"
+            onClick={() => setConfirming(false)}
+          >
+            Keep
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          className="saved-delete"
+          onClick={() => setConfirming(true)}
+          aria-label={`Delete saved conversation: ${conversation.title}`}
+        >
+          ✕
+        </button>
+      )}
+    </li>
   );
 }
 

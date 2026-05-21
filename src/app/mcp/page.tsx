@@ -4,8 +4,8 @@ import { infoPages } from "../info-content";
 import { InfoPageView } from "../info-page";
 
 export const metadata: Metadata = {
-  title: "MCP server — Youtube to Context",
-  description: "Expose Youtube to Context as a stdio MCP server with the watch_youtube tool."
+  title: "MCP server — yt2ctx",
+  description: "Expose yt2ctx as a stdio MCP server with the watch_youtube tool."
 };
 
 export default function McpPage() {

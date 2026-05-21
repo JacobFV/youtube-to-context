@@ -153,7 +153,7 @@ export const infoPages: Record<string, InfoPage> = {
     eyebrow: "About",
     title: "Reference cinema into executable production grammar.",
     intro:
-      "Youtube to Context turns a video into timed context, representative stills, and cinematic instructions that downstream coding and generation agents can actually use.",
+      "yt2ctx turns a video into timed context, representative stills, and cinematic instructions that downstream coding and generation agents can actually use.",
     sections: [
       {
         title: "The pipeline",

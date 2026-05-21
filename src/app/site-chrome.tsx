@@ -9,7 +9,7 @@ const productLinks = [
 
 export function Brand() {
   return (
-    <Link className="brand" href="/" aria-label="Youtube to Context home">
+    <Link className="brand" href="/" aria-label="yt2ctx home">
       <span className="brand-mark" aria-hidden="true">
         <svg className="brand-glyph" viewBox="0 0 24 24">
           <path className="brand-glyph-play" d="M6 4.5 L6 19.5 L15.5 12 Z" />
@@ -21,7 +21,7 @@ export function Brand() {
         </svg>
       </span>
       <span className="brand-text">
-        <span className="brand-name">Youtube to Context</span>
+        <span className="brand-name">yt2ctx</span>
         <span className="brand-tag">cinematic context compiler</span>
       </span>
     </Link>

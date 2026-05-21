@@ -4,8 +4,8 @@ import { infoPages } from "../info-content";
 import { InfoPageView } from "../info-page";
 
 export const metadata: Metadata = {
-  title: "Legal — Youtube to Context",
-  description: "Usage, rights, and deployment notes for Youtube to Context."
+  title: "Legal — yt2ctx",
+  description: "Usage, rights, and deployment notes for yt2ctx."
 };
 
 export default function LegalPage() {

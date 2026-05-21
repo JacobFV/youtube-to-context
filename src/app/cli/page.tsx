@@ -4,8 +4,8 @@ import { infoPages } from "../info-content";
 import { InfoPageView } from "../info-page";
 
 export const metadata: Metadata = {
-  title: "CLI — Youtube to Context",
-  description: "Run Youtube to Context from the terminal for local jobs, scripts, and batch processing."
+  title: "CLI — yt2ctx",
+  description: "Run yt2ctx from the terminal for local jobs, scripts, and batch processing."
 };
 
 export default function CliPage() {

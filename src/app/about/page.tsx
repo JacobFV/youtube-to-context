@@ -4,8 +4,8 @@ import { infoPages } from "../info-content";
 import { InfoPageView } from "../info-page";
 
 export const metadata: Metadata = {
-  title: "About — Youtube to Context",
-  description: "About the Youtube to Context cinematic context compiler."
+  title: "About — yt2ctx",
+  description: "About the yt2ctx cinematic context compiler."
 };
 
 export default function AboutPage() {

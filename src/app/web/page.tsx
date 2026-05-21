@@ -4,8 +4,8 @@ import { infoPages } from "../info-content";
 import { InfoPageView } from "../info-page";
 
 export const metadata: Metadata = {
-  title: "Web app — Youtube to Context",
-  description: "Use Youtube to Context in the browser with live NDJSON progress and artifact downloads."
+  title: "Web app — yt2ctx",
+  description: "Use yt2ctx in the browser with live NDJSON progress and artifact downloads."
 };
 
 export default function WebPage() {

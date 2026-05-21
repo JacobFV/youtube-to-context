@@ -5,7 +5,33 @@ import { Command } from "commander";
 
 import { analyzeYoutubeVideo } from "./core/analyze";
 import { attachFrameDataUrls } from "./core/render";
-import type { FrameSelectionMode, OutputMode } from "./core/types";
+import type { FrameSelectionMode, OutputMode, ProgressEvent } from "./core/types";
+
+/**
+ * Renders pipeline progress to stderr so stdout stays clean for piping.
+ * Uses a rewriting bar on a TTY and one tidy line per stage otherwise.
+ */
+function createCliReporter(enabled: boolean): ((event: ProgressEvent) => void) | undefined {
+  if (!enabled) return undefined;
+  const isTty = Boolean(process.stderr.isTTY);
+  let lastStage = "";
+
+  return (event: ProgressEvent) => {
+    const pct = Math.round(event.pct * 100);
+    if (isTty) {
+      const width = 22;
+      const filled = Math.round((pct / 100) * width);
+      const bar = "█".repeat(filled) + "·".repeat(width - filled);
+      const detail = event.detail ? ` — ${event.detail}` : "";
+      const line = `  [${bar}] ${String(pct).padStart(3)}%  ${event.label}${detail}`;
+      process.stderr.write(`\r${line.slice(0, 96).padEnd(96)}`);
+      if (event.stage === "done") process.stderr.write("\n");
+    } else if (event.stage !== lastStage) {
+      lastStage = event.stage;
+      process.stderr.write(`  ${String(pct).padStart(3)}%  ${event.label}\n`);
+    }
+  };
+}
 
 const program = new Command();
 
@@ -22,6 +48,7 @@ program
   .option("--frame-width <pixels>", "extracted frame width", (value) => Number.parseInt(value, 10), 768)
   .option("--json", "print JSON metadata instead of markdown")
   .option("--with-data-urls", "include base64 data URLs in JSON output")
+  .option("--quiet", "suppress the live progress display")
   .action(async (url: string, opts: Record<string, unknown>) => {
     let outputMode = String(opts.mode) as OutputMode;
     let selectionMode = String(opts.selectionMode) as FrameSelectionMode;
@@ -47,7 +74,8 @@ program
       outputMode,
       candidateIntervalSeconds: Number(opts.candidateInterval),
       maxCandidateFrames: Number(opts.maxCandidates),
-      frameWidth: Number(opts.frameWidth)
+      frameWidth: Number(opts.frameWidth),
+      onProgress: createCliReporter(!opts.quiet)
     });
 
     if (opts.json) {

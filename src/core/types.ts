@@ -16,6 +16,30 @@ export type AnalyzeVideoOptions = {
   transcribeModel?: string;
   visionModel?: string;
   embeddingModel?: string;
+  onProgress?: (event: ProgressEvent) => void;
+};
+
+export type ProgressStage =
+  | "info"
+  | "download"
+  | "audio"
+  | "transcribe"
+  | "frames"
+  | "vision"
+  | "embed"
+  | "select"
+  | "cinematic"
+  | "artifacts"
+  | "done";
+
+export type ProgressEvent = {
+  stage: ProgressStage;
+  label: string;
+  detail?: string;
+  current?: number;
+  total?: number;
+  pct: number;
+  elapsedMs: number;
 };
 
 export type VideoMetadata = {

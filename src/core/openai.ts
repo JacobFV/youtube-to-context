@@ -44,9 +44,11 @@ export async function transcribeAudioChunks(params: {
   chunks: string[];
   chunkSeconds: number;
   model: string;
+  onProgress?: (current: number, total: number) => void;
 }): Promise<{ text: string; segments: TranscriptSegment[] }> {
   const segments: TranscriptSegment[] = [];
 
+  params.onProgress?.(0, params.chunks.length);
   for (let index = 0; index < params.chunks.length; index += 1) {
     const chunkPath = params.chunks[index];
     const offset = index * params.chunkSeconds;
@@ -75,6 +77,8 @@ export async function transcribeAudioChunks(params: {
         text: response.text.trim()
       });
     }
+
+    params.onProgress?.(index + 1, params.chunks.length);
   }
 
   return {
@@ -154,9 +158,11 @@ export async function analyzeFramesSemantically(params: {
   transcriptSegments: TranscriptSegment[];
   visionModel: string;
   embeddingModel: string;
+  onProgress?: (phase: "vision" | "embed", current: number, total: number) => void;
 }): Promise<FrameAnalysis[]> {
   const described: Array<FrameAnalysis & { embedding?: number[] }> = [];
 
+  params.onProgress?.("vision", 0, params.candidates.length);
   for (const candidate of params.candidates) {
     const transcriptContext = transcriptContextAt(params.transcriptSegments, candidate.timestamp, 12);
     const vision = await describeFrame({
@@ -173,9 +179,11 @@ export async function analyzeFramesSemantically(params: {
       score: 0,
       transcriptContext
     });
+    params.onProgress?.("vision", described.length, params.candidates.length);
   }
 
   if (described.length > 0) {
+    params.onProgress?.("embed", 0, 1);
     const embeddingResponse = await params.client.embeddings.create({
       model: params.embeddingModel,
       input: described.map((frame) => `${frame.description}\nTags: ${frame.labels.join(", ")}`),
@@ -185,6 +193,7 @@ export async function analyzeFramesSemantically(params: {
     embeddingResponse.data.forEach((item, index) => {
       described[index].embedding = item.embedding;
     });
+    params.onProgress?.("embed", 1, 1);
   }
 
   const semanticNovelty = described.map((frame, index) => {

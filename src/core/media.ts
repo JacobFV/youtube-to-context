@@ -170,6 +170,7 @@ export async function extractCandidateFrames(params: {
   intervalSeconds: number;
   maxCandidateFrames: number;
   width: number;
+  onFrame?: (current: number, total: number) => void;
 }): Promise<CandidateFrame[]> {
   const timestamps = candidateTimestamps(
     params.durationSeconds,
@@ -184,6 +185,7 @@ export async function extractCandidateFrames(params: {
     const framePath = path.join(params.frameDir, fileName);
     await extractFrame(params.videoPath, framePath, timestamp, params.width);
     const metrics = await analyzeImageMetrics(framePath);
+    params.onFrame?.(index + 1, timestamps.length);
     candidates.push({
       index,
       timestamp,

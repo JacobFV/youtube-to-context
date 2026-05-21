@@ -12,6 +12,7 @@ import {
   createOpenAiClient,
   transcribeAudioChunks
 } from "./openai";
+import { createProgressTracker } from "./progress";
 import { persistArtifacts, moveSelectedFrames } from "./render";
 import { selectFrames } from "./select";
 import { slugify } from "./time";
@@ -46,7 +47,10 @@ export async function analyzeYoutubeVideo(options: AnalyzeVideoOptions): Promise
     embeddingModel: options.embeddingModel ?? DEFAULTS.embeddingModel
   };
 
+  const tracker = createProgressTracker(options.onProgress);
   const client = createOpenAiClient(apiKey);
+
+  tracker.report("info");
   const info = await getVideoInfo(resolved.url);
   const jobId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto
     .randomBytes(4)
@@ -61,38 +65,63 @@ export async function analyzeYoutubeVideo(options: AnalyzeVideoOptions): Promise
     const candidateDir = path.join(workDir, "candidate-frames");
     const frameDir = path.join(outputRoot, "frames");
 
+    tracker.report("download", { detail: info.title || undefined });
     await downloadVideo(resolved.url, videoPath);
     const duration = info.durationSeconds || (await getDurationSeconds(videoPath));
     const metadata = { ...info, durationSeconds: duration };
 
+    tracker.report("audio");
     await extractAudio(videoPath, audioPath);
     const chunkSeconds = 900;
     const chunks = await splitAudio(audioPath, chunkDir, chunkSeconds);
+
+    tracker.report("transcribe", { current: 0, total: chunks.length });
     const transcript = await transcribeAudioChunks({
       client,
       chunks,
       chunkSeconds,
-      model: resolved.transcribeModel
+      model: resolved.transcribeModel,
+      onProgress: (current, total) =>
+        tracker.report("transcribe", {
+          current,
+          total,
+          detail: total > 1 ? `Segment ${current} of ${total}` : undefined
+        })
     });
 
+    tracker.report("frames");
     const candidates = await extractCandidateFrames({
       videoPath,
       frameDir: candidateDir,
       durationSeconds: duration,
       intervalSeconds: resolved.candidateIntervalSeconds,
       maxCandidateFrames: resolved.maxCandidateFrames,
-      width: resolved.frameWidth
+      width: resolved.frameWidth,
+      onFrame: (current, total) =>
+        tracker.report("frames", { current, total, detail: `Frame ${current} of ${total}` })
     });
 
+    tracker.report("vision", { current: 0, total: candidates.length });
     const analyzedFrames = await analyzeFramesSemantically({
       client,
       candidates,
       transcriptSegments: transcript.segments,
       visionModel: resolved.visionModel,
-      embeddingModel: resolved.embeddingModel
+      embeddingModel: resolved.embeddingModel,
+      onProgress: (phase, current, total) => {
+        if (phase === "vision") {
+          tracker.report("vision", { current, total, detail: `Frame ${current} of ${total}` });
+        } else {
+          tracker.report("embed", { current, total });
+        }
+      }
     });
+
+    tracker.report("select");
     const selected = selectFrames(analyzedFrames, resolved.topK, resolved.mode);
     const frames = await moveSelectedFrames({ selectedFrames: selected, frameDir });
+
+    tracker.report("cinematic", { detail: "Reading selected frames as production evidence" });
     const cinematic = await analyzeCinematicGrammar({
       client,
       model: resolved.visionModel,
@@ -135,7 +164,9 @@ export async function analyzeYoutubeVideo(options: AnalyzeVideoOptions): Promise
       }
     };
 
+    tracker.report("artifacts");
     const markdown = await persistArtifacts(resultWithoutMarkdown);
+    tracker.report("done");
     return {
       ...resultWithoutMarkdown,
       markdown

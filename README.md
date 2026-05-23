@@ -216,8 +216,10 @@ browser session:
 npm run cli -- "<url>" --cookies-from-browser chrome
 ```
 
-For server, API, or MCP runs, set `YT2CTX_YTDLP_COOKIES` to a cookies.txt path
-or `YT2CTX_YTDLP_COOKIES_FROM_BROWSER` to a browser name in the environment.
+For server, API, or MCP runs, set `YT2CTX_YTDLP_COOKIES` to a cookies.txt path.
+On hosts like Vercel, set `YT2CTX_YTDLP_COOKIES_BASE64` to the base64-encoded
+contents of a Netscape cookies.txt export instead. `YT2CTX_YTDLP_COOKIES_FROM_BROWSER`
+is only useful where the server can read that browser profile from disk.
 
 ## MCP server
 
@@ -415,6 +417,8 @@ Environment variables (see `.env.example`):
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model. |
 | `YT2CTX_OUTPUT_DIR` | `.yt2ctx` | Default artifact directory. |
 | `YT2CTX_YTDLP_COOKIES` | — | Optional Netscape cookies.txt path for `yt-dlp`. |
+| `YT2CTX_YTDLP_COOKIES_TEXT` | — | Optional Netscape cookies.txt contents for hosted/serverless runs. |
+| `YT2CTX_YTDLP_COOKIES_BASE64` | — | Optional base64-encoded Netscape cookies.txt contents for hosted/serverless runs. |
 | `YT2CTX_YTDLP_COOKIES_FROM_BROWSER` | — | Optional browser cookie source for `yt-dlp`, such as `chrome` or `firefox`. |
 
 `whisper-1` is the default because it supports verbose JSON with segment

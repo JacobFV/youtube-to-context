@@ -1,5 +1,6 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 
 import type { VideoMetadata, YtDlpAuthOptions } from "./types";
@@ -17,8 +18,31 @@ type YoutubeDlInfo = {
   thumbnail?: string;
 };
 
-function authFlags(auth?: YtDlpAuthOptions): Record<string, string> {
-  const cookies = auth?.cookies || process.env.YT2CTX_YTDLP_COOKIES;
+let envCookiesPath: Promise<string | null> | null = null;
+
+function envCookieText(): string | null {
+  const encoded = process.env.YT2CTX_YTDLP_COOKIES_BASE64;
+  if (encoded) return Buffer.from(encoded, "base64").toString("utf8");
+
+  const text = process.env.YT2CTX_YTDLP_COOKIES_TEXT;
+  if (!text) return null;
+  return text.includes("\\n") && !text.includes("\n") ? text.replace(/\\n/g, "\n") : text;
+}
+
+async function envCookieFile(): Promise<string | null> {
+  envCookiesPath ??= (async () => {
+    const text = envCookieText();
+    if (!text) return null;
+
+    const cookiePath = path.join(os.tmpdir(), "yt2ctx-ytdlp-cookies.txt");
+    await writeFile(cookiePath, text, { mode: 0o600 });
+    return cookiePath;
+  })();
+  return envCookiesPath;
+}
+
+async function authFlags(auth?: YtDlpAuthOptions): Promise<Record<string, string>> {
+  const cookies = auth?.cookies || process.env.YT2CTX_YTDLP_COOKIES || (await envCookieFile());
   const cookiesFromBrowser = auth?.cookiesFromBrowser || process.env.YT2CTX_YTDLP_COOKIES_FROM_BROWSER;
   return {
     ...(cookies ? { cookies } : {}),
@@ -31,7 +55,7 @@ export async function getVideoInfo(url: string, auth?: YtDlpAuthOptions): Promis
     dumpSingleJson: true,
     noWarnings: true,
     noCheckCertificates: true,
-    ...authFlags(auth)
+    ...(await authFlags(auth))
   })) as YoutubeDlInfo;
 
   return {
@@ -59,6 +83,6 @@ export async function downloadVideo(
     ffmpegLocation,
     noWarnings: true,
     noCheckCertificates: true,
-    ...authFlags(auth)
+    ...(await authFlags(auth))
   });
 }

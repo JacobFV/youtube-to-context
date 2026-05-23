@@ -1137,14 +1137,21 @@ function YouTubeCookiesPanel(props: {
           them. Export a Netscape cookies.txt file from the browser where YouTube works, then paste
           it here. The export is encrypted and used only for your analyses.
         </p>
+        <p>
+          Use Chrome, Edge, Brave, or Firefox on your own computer. The exported file should start
+          with a Netscape cookie header and include rows for youtube.com.
+        </p>
         {updatedAt ? <span className="youtube-cookies-meta">Updated {updatedAt}</span> : null}
       </div>
 
       <div className="youtube-cookies-steps">
         <ol>
-          <li>Install a cookies.txt exporter extension for your browser.</li>
-          <li>Open youtube.com while signed in, then export cookies for the current site.</li>
-          <li>Paste the Netscape cookies.txt contents below, or choose the exported file.</li>
+          <li>Install a browser extension that exports cookies in Netscape cookies.txt format.</li>
+          <li>Open youtube.com in that same browser and confirm you are signed in.</li>
+          <li>Open the video in YouTube. If YouTube asks for bot or age confirmation, complete it there.</li>
+          <li>Click the exporter extension and export cookies for youtube.com or the current site.</li>
+          <li>Open the downloaded file. It should contain tab-separated rows with youtube.com domains.</li>
+          <li>Choose that file here, or paste the entire file contents into the box.</li>
         </ol>
         <input
           type="file"
